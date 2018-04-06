@@ -28,7 +28,6 @@ func (a *App) EventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse payload.
 	var p map[string]interface{}
 	if err := json.Unmarshal(buf, &p); err != nil {
 		a.Log(r, "invalid JSON: %s", err)
@@ -42,7 +41,6 @@ func (a *App) EventHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	eventTypeString, ok := eventType.(string)
 	if !ok {
 		a.Log(r, "event type is not a string")
@@ -59,7 +57,7 @@ func (a *App) EventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 		a.Log(r, "unexpected event type: %s: %s", eventTypeString, buf)
-		// Just say OK
+		// Just say OK. It's likely we just don't support it but it is fine.
 		return
 	}
 }
@@ -72,7 +70,7 @@ func (a *App) Log(r *http.Request, f string, args ...interface{}) {
 	)
 }
 
-// EventURLVerification handles an url_verification" event. This event happens
+// EventURLVerification handles an url_verification event. This event happens
 // when enabling event subscriptions on the app.
 //
 // We echo the challenge back.
@@ -87,7 +85,6 @@ func (a *App) EventURLVerification(
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	challengeString, ok := challenge.(string)
 	if !ok {
 		a.Log(r, "url_verification event challenge is not a string")
@@ -95,12 +92,9 @@ func (a *App) EventURLVerification(
 		return
 	}
 
-	// We echo the challenge.
-
 	type Response struct {
 		Challenge string `json:"challenge"`
 	}
-
 	resp := Response{
 		Challenge: challengeString,
 	}
@@ -117,7 +111,6 @@ func (a *App) EventURLVerification(
 		a.Log(r, "error writing url_verification response: %s", err)
 		return
 	}
-
 	if n != len(buf) {
 		a.Log(r, "error writing url_verification response: short write")
 		return
@@ -161,11 +154,11 @@ func (a *App) EventEventCallback(
 
 	switch eventTypeString {
 	case "message":
-		a.EventMessageChannels(w, r, p, eventMap)
+		a.EventMessageChannels(w, r, eventMap)
 		return
 	default:
 		a.Log(r, "event_callback.event.type not recognized")
-		// Just say OK
+		// Just say OK. We probably just don't support it but it is okay.
 		return
 	}
 }
@@ -175,11 +168,8 @@ func (a *App) EventEventCallback(
 func (a *App) EventMessageChannels(
 	w http.ResponseWriter,
 	r *http.Request,
-	p map[string]interface{},
 	event map[string]interface{},
 ) {
-	a.Log(r, "Got message event: %+v", p)
-
 	if subType, ok := event["subtype"]; ok {
 		if subType, ok := subType.(string); ok {
 			if subType == "bot_message" {
@@ -203,10 +193,8 @@ func (a *App) EventMessageChannels(
 	}
 
 	go func() {
-		if err := a.client.ChatPostMessage(
-			chString,
-			"hi there",
-		); err != nil {
+		m := "hi there"
+		if err := a.client.ChatPostMessage(chString, m); err != nil {
 			a.Log(r, "error posting message to channel: %s", err)
 			return
 		}

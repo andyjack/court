@@ -59,9 +59,6 @@ func (c *Client) ChatPostMessage(
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	// I don't know what the deal is with the token parameter that can be in the
-	// request, but apparently we have to provide it in the Authorization header.
-	// Oh, it appears to be usable when not sending JSON requests.
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
 
 	resp, err := c.httpClient.Do(req)
