@@ -136,7 +136,9 @@ func (a *App) EventURLVerification(
 }
 
 // EventEventCallback is the event that happens when we receive a regular
-// authorized user event.
+// authorized user event. It holds an event object inside it which can be of
+// different types, so we dispatch to different functions depending on that
+// event.
 func (a *App) EventEventCallback(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -208,6 +210,7 @@ func (a *App) EventMessageChannels(
 		return
 	}
 
+	// Respond in a goroutine so we reply to the event request ASAP.
 	go func() {
 		m := "hi there"
 		if err := a.client.ChatPostMessage(chString, m); err != nil {
