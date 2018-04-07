@@ -31,10 +31,7 @@ func NewClient(token string) *Client {
 }
 
 // ChatPostMessage sends a message to a channel (chat.postMessage).
-func (c *Client) ChatPostMessage(
-	channel,
-	text string,
-) error {
+func (c *Client) ChatPostMessage(channel, text string) error {
 	type Payload struct {
 		Channel string `json:"channel"`
 		Text    string `json:"text"`
