@@ -4,23 +4,19 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 )
 
 func main() {
 	args, err := getArgs()
 	if err != nil {
-		log.Fatalf("invalid argument: %s", err)
+		log.Fatalf("%s", err)
 	}
 
 	app := App{
 		client: NewClient(args.token),
 	}
 
-	http.HandleFunc("/event", app.EventHandler)
-
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", args.port),
-		nil); err != nil {
+	if err := app.Serve(); err != nil {
 		log.Fatalf("error serving: %s", err)
 	}
 }
@@ -33,7 +29,7 @@ type Args struct {
 
 func getArgs() (Args, error) {
 	port := flag.Int("port", 8080, "Port to listen on")
-	token := flag.String("token", "", "Slack token to use with API")
+	token := flag.String("token", "", "Slack OAuth token to use with its Web API")
 
 	flag.Parse()
 

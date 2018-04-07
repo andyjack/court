@@ -10,7 +10,23 @@ import (
 
 // App holds global app state.
 type App struct {
+	port   int
 	client *Client
+}
+
+// Serve starts serving requests.
+//
+// It does not return unless there is an error.
+func (a *App) Serve() error {
+	http.HandleFunc("/event", a.EventHandler)
+
+	hostAndPort := fmt.Sprintf(":%d", a.port)
+
+	if err := http.ListenAndServe(hostAndPort, nil); err != nil {
+		return fmt.Errorf("error serving: %s", err)
+	}
+
+	return nil
 }
 
 // EventHandler handles an HTTP request sent to the /event endpoint.
