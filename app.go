@@ -51,6 +51,8 @@ func (a *App) EventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.Log(r, "received event: %+v", p)
+
 	eventType, ok := p["type"]
 	if !ok {
 		a.Log(r, "no event type found")
@@ -190,13 +192,11 @@ func (a *App) EventMessageChannels(
 	r *http.Request,
 	event map[string]interface{},
 ) {
-	if subType, ok := event["subtype"]; ok {
-		if subType, ok := subType.(string); ok {
-			if subType == "bot_message" {
-				a.Log(r, "got channel event.subtype bot_message, ignoring it")
-				return
-			}
-		}
+	// subtypes can include our own messages (bot_message). To simplify things,
+	// only deal with regular channel messages (which have no subtype).
+	if _, ok := event["subtype"]; ok {
+		a.Log(r, "got channel event with subtype, ignoring it")
+		return
 	}
 
 	ch, ok := event["channel"]
