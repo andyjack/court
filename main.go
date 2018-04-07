@@ -13,6 +13,7 @@ func main() {
 	}
 
 	app := App{
+		port:   args.port,
 		client: NewClient(args.token),
 	}
 
