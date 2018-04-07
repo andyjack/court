@@ -125,14 +125,16 @@ func (a *App) EventURLVerification(
 	n, err := w.Write(buf)
 	if err != nil {
 		a.Log(r, "error writing url_verification response: %s", err)
+		// Can't send an HTTP status code as we should have written.
 		return
 	}
 	if n != len(buf) {
 		a.Log(r, "error writing url_verification response: short write")
+		// Can't send an HTTP status code as we should have written.
 		return
 	}
 
-	a.Log(r, "Successfully replied to url_verification")
+	a.Log(r, "Processed url_verification event")
 }
 
 // EventEventCallback is the event that happens when we receive a regular
@@ -146,26 +148,26 @@ func (a *App) EventEventCallback(
 ) {
 	event, ok := p["event"]
 	if !ok {
-		a.Log(r, "event_callback.event not found")
+		a.Log(r, "event_callback event not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	eventMap, ok := event.(map[string]interface{})
 	if !ok {
-		a.Log(r, "event_callback.event is not an object")
+		a.Log(r, "event_callback event is not an object")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	eventType, ok := eventMap["type"]
 	if !ok {
-		a.Log(r, "event_callback.event.type not found")
+		a.Log(r, "event_callback event.type not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	eventTypeString, ok := eventType.(string)
 	if !ok {
-		a.Log(r, "event_callback.event.type is not a string")
+		a.Log(r, "event_callback event.type is not a string")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -175,7 +177,7 @@ func (a *App) EventEventCallback(
 		a.EventMessageChannels(w, r, eventMap)
 		return
 	default:
-		a.Log(r, "event_callback.event.type not recognized")
+		a.Log(r, "event_callback event.type not recognized")
 		// Just say OK. We probably just don't support it but it is okay.
 		return
 	}
@@ -219,4 +221,6 @@ func (a *App) EventMessageChannels(
 		}
 		a.Log(r, "sent message to channel in reply")
 	}()
+
+	a.Log(r, "Processed event_callback message event")
 }
