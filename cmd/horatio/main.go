@@ -60,19 +60,19 @@ func main() {
 type Args struct {
 	listenPort int
 	url        string
-	nick       string
 	ircHost    string
 	ircPort    int
+	nick       string
 	channel    string
 }
 
 func getArgs() (Args, error) {
-	listenPort := flag.Int("listen-port", 8081, "Port to listen on")
+	listenPort := flag.Int("listen-port", 8081, "Port to listen on (HTTP)")
 	url := flag.String("url", "http://localhost:8080/event",
-		"HTTP URL to send message events to")
-	nick := flag.String("nick", "bot", "Nickname to use")
+		"URL to send message events to")
 	ircHost := flag.String("irc-host", "localhost", "IRC server host")
 	ircPort := flag.Int("irc-port", 6667, "IRC server port")
+	nick := flag.String("nick", "bot", "Nickname to use")
 	channel := flag.String("channel", "#test", "Channel to join")
 
 	flag.Parse()
@@ -87,11 +87,6 @@ func getArgs() (Args, error) {
 		return Args{}, fmt.Errorf("you must provide a URL")
 	}
 
-	if *nick == "" {
-		flag.PrintDefaults()
-		return Args{}, fmt.Errorf("you must provide a nick")
-	}
-
 	if *ircHost == "" {
 		flag.PrintDefaults()
 		return Args{}, fmt.Errorf("you must provide an IRC host")
@@ -102,6 +97,11 @@ func getArgs() (Args, error) {
 		return Args{}, fmt.Errorf("you must provide an IRC port")
 	}
 
+	if *nick == "" {
+		flag.PrintDefaults()
+		return Args{}, fmt.Errorf("you must provide a nick")
+	}
+
 	if *channel == "" {
 		flag.PrintDefaults()
 		return Args{}, fmt.Errorf("you must provide a channel")
@@ -110,9 +110,9 @@ func getArgs() (Args, error) {
 	return Args{
 		listenPort: *listenPort,
 		url:        *url,
-		nick:       *nick,
 		ircHost:    *ircHost,
 		ircPort:    *ircPort,
+		nick:       *nick,
 		channel:    *channel,
 	}, nil
 }
