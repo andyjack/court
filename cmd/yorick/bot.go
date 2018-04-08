@@ -19,10 +19,12 @@ func messageEvent(
 			log.Printf("Error posting message to channel: %s", err)
 			return
 		}
+
 		return
 	}
 
 	reply := "huh?"
+
 	err := client.ChatPostMessage(channel, reply)
 	if err != nil {
 		log.Printf("Error posting message to channel: %s", err)
