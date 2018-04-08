@@ -22,6 +22,7 @@ func (a *App) Serve() error {
 
 	hostAndPort := fmt.Sprintf(":%d", a.port)
 
+	log.Printf("Starting to listen on port %d for POST /event", a.port)
 	if err := http.ListenAndServe(hostAndPort, nil); err != nil {
 		return fmt.Errorf("error serving: %s", err)
 	}
