@@ -1,2 +1,3 @@
 *.swp
+/cmd/horatio/horatio
 /cmd/yorick/yorick
