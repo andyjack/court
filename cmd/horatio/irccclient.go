@@ -67,18 +67,18 @@ func NewIRCClient(
 	return client, nil
 }
 
-func (c *IRCClient) init(channel string) error {
-	c.Write(irc.Message{
+func (i *IRCClient) init(channel string) error {
+	i.Write(irc.Message{
 		Command: "NICK",
-		Params:  []string{c.nick},
+		Params:  []string{i.nick},
 	})
 
-	c.Write(irc.Message{
+	i.Write(irc.Message{
 		Command: "USER",
-		Params:  []string{c.nick, c.nick, "0", c.nick},
+		Params:  []string{i.nick, i.nick, "0", i.nick},
 	})
 
-	c.Write(irc.Message{
+	i.Write(irc.Message{
 		Command: "JOIN",
 		Params:  []string{channel},
 	})
@@ -89,7 +89,7 @@ func (c *IRCClient) init(channel string) error {
 		select {
 		case <-timeoutChan:
 			return fmt.Errorf("timeout waiting for connection init")
-		case m, ok := <-c.readChan:
+		case m, ok := <-i.readChan:
 			if !ok {
 				return fmt.Errorf("read channel closed")
 			}
@@ -109,37 +109,37 @@ func (c *IRCClient) init(channel string) error {
 }
 
 // Read reads an IRC message.
-func (c *IRCClient) Read() (irc.Message, bool) {
-	m, ok := <-c.readChan
+func (i *IRCClient) Read() (irc.Message, bool) {
+	m, ok := <-i.readChan
 	return m, ok
 }
 
-func (c *IRCClient) reader(wg *sync.WaitGroup) {
+func (i *IRCClient) reader(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
-		m, err := c.readMessage()
+		m, err := i.readMessage()
 		if err != nil {
 			log.Printf("error reading: %s", err)
-			close(c.readChan)
+			close(i.readChan)
 			return
 		}
 
-		if c.verbose {
+		if i.verbose {
 			log.Printf("read message: %s", m)
 		}
-		c.readChan <- m
+		i.readChan <- m
 	}
 }
 
 var readTimeout = 5 * time.Minute
 
-func (c *IRCClient) readMessage() (irc.Message, error) {
-	if err := c.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
+func (i *IRCClient) readMessage() (irc.Message, error) {
+	if err := i.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		return irc.Message{}, fmt.Errorf("error setting read deadline: %s", err)
 	}
 
-	line, err := c.rw.ReadString('\n')
+	line, err := i.rw.ReadString('\n')
 	if err != nil {
 		return irc.Message{}, err
 	}
@@ -154,41 +154,41 @@ func (c *IRCClient) readMessage() (irc.Message, error) {
 }
 
 // Write writes a message to the connection.
-func (c *IRCClient) Write(m irc.Message) {
-	c.writeChan <- m
+func (i *IRCClient) Write(m irc.Message) {
+	i.writeChan <- m
 }
 
-func (c *IRCClient) writer(wg *sync.WaitGroup) {
+func (i *IRCClient) writer(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for m := range c.writeChan {
-		if err := c.writeMessage(m); err != nil {
+	for m := range i.writeChan {
+		if err := i.writeMessage(m); err != nil {
 			log.Printf("error writing: %s", err)
 			break
 		}
 
-		if c.verbose {
+		if i.verbose {
 			log.Printf("wrote message: %s", m)
 		}
 	}
 
-	for range c.writeChan {
+	for range i.writeChan {
 	}
 }
 
 var writeTimeout = time.Minute
 
-func (c *IRCClient) writeMessage(m irc.Message) error {
+func (i *IRCClient) writeMessage(m irc.Message) error {
 	buf, err := m.Encode()
 	if err != nil && err != irc.ErrTruncated {
 		return fmt.Errorf("error encoding message: %s", err)
 	}
 
-	if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+	if err := i.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 		return fmt.Errorf("error setting write deadline: %s", err)
 	}
 
-	sz, err := c.rw.WriteString(buf)
+	sz, err := i.rw.WriteString(buf)
 	if err != nil {
 		return fmt.Errorf("error writing: %s", err)
 	}
@@ -197,7 +197,7 @@ func (c *IRCClient) writeMessage(m irc.Message) error {
 		return fmt.Errorf("short write")
 	}
 
-	if err := c.rw.Flush(); err != nil {
+	if err := i.rw.Flush(); err != nil {
 		return fmt.Errorf("error flushing: %s", err)
 	}
 
@@ -205,7 +205,7 @@ func (c *IRCClient) writeMessage(m irc.Message) error {
 }
 
 // Close cleans up the client.
-func (c *IRCClient) Close() {
-	close(c.writeChan)
-	_ = c.conn.Close()
+func (i *IRCClient) Close() {
+	close(i.writeChan)
+	_ = i.conn.Close()
 }
