@@ -16,13 +16,18 @@ type App struct {
 	client  *Client
 }
 
-func httpServer(verbose bool, port int, client *Client) error {
-	app := &App{
+// NewApp creates a new APP, an HTTP server.
+func NewApp(verbose bool, client *Client) *App {
+	return &App{
 		verbose: verbose,
 		client:  client,
 	}
+}
 
-	http.HandleFunc("/api/chat.postMessage", app.postMessageHandler)
+// Serve starts listening for HTTP requests. If it does not return an error
+// then it does not return.
+func (a *App) Serve(port int) error {
+	http.HandleFunc("/api/chat.postMessage", a.postMessageHandler)
 
 	hostAndPort := fmt.Sprintf(":%d", port)
 

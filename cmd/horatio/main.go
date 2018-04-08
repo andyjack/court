@@ -28,8 +28,10 @@ func main() {
 		log.Fatalf("error connecting: %s", err)
 	}
 
+	app := NewApp(args.verbose, client)
+
 	go func() {
-		if err := httpServer(args.verbose, args.listenPort, client); err != nil {
+		if err := app.Serve(args.listenPort); err != nil {
 			log.Fatalf("error serving HTTP: %s", err)
 		}
 	}()
