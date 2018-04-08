@@ -11,6 +11,8 @@ import (
 )
 
 // WebAPI is an HTTP server acting as Slack's Web API.
+//
+// It receives chat.postMessage requests containing messages to send to IRC.
 type WebAPI struct {
 	verbose   bool
 	ircClient *IRCClient
@@ -24,8 +26,9 @@ func NewWebAPI(verbose bool, ircClient *IRCClient) *WebAPI {
 	}
 }
 
-// Serve starts listening for HTTP requests. If it does not return an error
-// then it does not return.
+// Serve starts listening for HTTP requests.
+//
+// If it does not return an error then it does not return.
 func (w *WebAPI) Serve(port int) error {
 	http.HandleFunc("/api/chat.postMessage", w.postMessageHandler)
 
