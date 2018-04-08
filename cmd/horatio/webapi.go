@@ -99,5 +99,5 @@ func (w *WebAPI) postMessageHandler(hw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Received POST /api/chat.postMessage: %+v", p)
+	log.Printf("Processed POST /api/chat.postMessage: %+v", p)
 }
