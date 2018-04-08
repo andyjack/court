@@ -229,7 +229,7 @@ func (e *EventListener) eventMessage(
 			e.log(r, "error posting message to channel: %s", err)
 			return
 		}
-		e.log(r, "sent message to channel in reply")
+		e.log(r, "Sent message via Web API: %s: %s", chString, m)
 	}()
 
 	e.log(r, "Processed event_callback message event")
