@@ -126,6 +126,11 @@ type Client struct {
 	writeChan chan irc.Message
 }
 
+var dialer = &net.Dialer{
+	Timeout:   10 * time.Second,
+	KeepAlive: 10 * time.Second,
+}
+
 // NewClient creates an IRC client. It connects and joins a channel.
 func NewClient(
 	nick,
@@ -133,11 +138,6 @@ func NewClient(
 	host string,
 	port int,
 ) (*Client, error) {
-	dialer := &net.Dialer{
-		Timeout:   10 * time.Second,
-		KeepAlive: 10 * time.Second,
-	}
-
 	hostAndPort := fmt.Sprintf("%s:%d", host, port)
 	conn, err := dialer.Dial("tcp", hostAndPort)
 	if err != nil {
