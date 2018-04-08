@@ -98,6 +98,12 @@ func (e *EventListener) log(r *http.Request, f string, args ...interface{}) {
 	)
 }
 
+// URLVerificationResponse represents the response we send to a
+// url_verification event.
+type URLVerificationResponse struct {
+	Challenge string `json:"challenge"`
+}
+
 // eventURLVerification handles an url_verification event. This event happens
 // when enabling event subscriptions on the app.
 //
@@ -120,10 +126,7 @@ func (e *EventListener) eventURLVerification(
 		return
 	}
 
-	type Response struct {
-		Challenge string `json:"challenge"`
-	}
-	resp := Response{
+	resp := URLVerificationResponse{
 		Challenge: challengeString,
 	}
 
