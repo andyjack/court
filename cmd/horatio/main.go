@@ -2,11 +2,15 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/horgh/irc"
@@ -18,17 +22,25 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	client, err := NewClient(args.nick, args.channel, args.ircHost, args.ircPort)
+	var wg sync.WaitGroup
+
+	client, err := NewClient(args.nick, args.channel, args.ircHost, args.ircPort,
+		&wg)
 	if err != nil {
 		log.Fatalf("error connecting: %s", err)
 	}
+
+	go func() {
+		if err := httpServer(args.listenPort, client.writeChan); err != nil {
+			log.Fatalf("error serving HTTP: %s", err)
+		}
+	}()
 
 	for {
 		m, ok := <-client.readChan
 		if !ok {
 			break
 		}
-		log.Printf("got message: %s", m)
 
 		if m.Command == "PING" {
 			client.writeChan <- irc.Message{
@@ -54,6 +66,8 @@ func main() {
 	}
 
 	close(client.writeChan)
+	_ = client.conn.Close()
+	wg.Wait()
 }
 
 // Args are command line arguments.
@@ -137,6 +151,7 @@ func NewClient(
 	channel,
 	host string,
 	port int,
+	wg *sync.WaitGroup,
 ) (*Client, error) {
 	hostAndPort := fmt.Sprintf("%s:%d", host, port)
 	conn, err := dialer.Dial("tcp", hostAndPort)
@@ -155,8 +170,10 @@ func NewClient(
 		writeChan: make(chan irc.Message, 1024),
 	}
 
-	go client.reader()
-	go client.writer()
+	wg.Add(1)
+	go client.reader(wg)
+	wg.Add(1)
+	go client.writer(wg)
 
 	if err := client.init(channel); err != nil {
 		_ = conn.Close()
@@ -206,7 +223,9 @@ func (c *Client) init(channel string) error {
 	}
 }
 
-func (c *Client) reader() {
+func (c *Client) reader(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		m, err := c.readMessage()
 		if err != nil {
@@ -241,7 +260,9 @@ func (c *Client) readMessage() (irc.Message, error) {
 	return m, nil
 }
 
-func (c *Client) writer() {
+func (c *Client) writer(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for m := range c.writeChan {
 		if err := c.writeMessage(m); err != nil {
 			log.Printf("error writing: %s", err)
@@ -283,10 +304,152 @@ func (c *Client) writeMessage(m irc.Message) error {
 	return nil
 }
 
+// MessageEvent represents the payload we send for a message event.
+//
+// It's structured to be similar to the Slack Event API event of this type.
+type MessageEvent struct {
+	Type  string `json:"type"`
+	Event Event  `json:"event"`
+}
+
+// Event is part of MessageEvent
+type Event struct {
+	Type    string `json:"type"`
+	Channel string `json:"channel"`
+	User    string `json:"user"`
+	Text    string `json:"text"`
+}
+
 var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
 func dispatchEvent(url string, m irc.Message) error {
+	event := MessageEvent{
+		Type: "event_callback",
+		Event: Event{
+			Type:    "message",
+			Channel: m.Params[0],
+			User:    m.Prefix,
+			Text:    m.Params[1],
+		},
+	}
+
+	buf, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("error marshaling: %s", err)
+	}
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		url,
+		bytes.NewBuffer(buf),
+	)
+	if err != nil {
+		return fmt.Errorf("error creating request: %s", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("error performing HTTP request: %s", err)
+	}
+
+	if _, err := ioutil.ReadAll(resp.Body); err != nil {
+		_ = resp.Body.Close()
+		return fmt.Errorf("error reading body: %s", err)
+	}
+
+	if err := resp.Body.Close(); err != nil {
+		return fmt.Errorf("error closing body: %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d from API", resp.StatusCode)
+	}
+
 	return nil
+}
+
+// App is an HTTP server.
+type App struct {
+	writeChan chan<- irc.Message
+}
+
+func httpServer(port int, writeChan chan<- irc.Message) error {
+	app := &App{
+		writeChan: writeChan,
+	}
+
+	http.HandleFunc("/api/chat.postMessage", app.postMessageHandler)
+
+	hostAndPort := fmt.Sprintf(":%d", port)
+
+	log.Printf("Starting to listen on port %d for POST /api/chat.postMessage",
+		port)
+	if err := http.ListenAndServe(hostAndPort, nil); err != nil {
+		return fmt.Errorf("error serving: %s", err)
+	}
+
+	return nil
+}
+
+// PostMessagePayload represents the payload sent in a chat.postMessage
+// request.
+type PostMessagePayload struct {
+	Channel string `json:"channel"`
+	Text    string `json:"text"`
+}
+
+// APIResponse is a response that is similar to Slack's Web API's response.
+type APIResponse struct {
+	OK bool `json:"ok"`
+}
+
+func (a *App) postMessageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		log.Printf("invalid request method")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	buf, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("error reading request: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var p PostMessagePayload
+	if err := json.Unmarshal(buf, &p); err != nil {
+		log.Printf("invalid JSON: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	a.writeChan <- irc.Message{
+		Command: "PRIVMSG",
+		Params:  []string{p.Channel, p.Text},
+	}
+
+	resp := APIResponse{OK: true}
+	{
+		buf, err := json.Marshal(resp)
+		if err != nil {
+			log.Printf("error marshaling response: %s", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		n, err := w.Write(buf)
+		if err != nil {
+			log.Printf("error writing response: %s", err)
+			return
+		}
+		if n != len(buf) {
+			log.Printf("error writing response: short write")
+			return
+		}
+	}
+
+	log.Printf("processed chat.postMessage: %+v", p)
 }
