@@ -32,7 +32,7 @@ func getArgs() (Args, error) {
 	port := flag.Int("port", 8080, "Port to listen on")
 	url := flag.String("url", "http://127.0.0.1:8081/api",
 		"Slack API endpoint base URL. Typically https://slack.com/api")
-	token := flag.String("token", "", "Slack OAuth token to use with its Web API")
+	token := flag.String("token", "", "OAuth token to use with the Web API")
 
 	flag.Parse()
 
