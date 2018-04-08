@@ -58,8 +58,8 @@ func main() {
 			continue
 		}
 
-		if err := dispatchEvent(args.url, m); err != nil {
-			log.Printf("error dispatching event: %s", err)
+		if err := dispatchMessageEvent(args.url, m); err != nil {
+			log.Printf("error dispatching message event: %s", err)
 			continue
 		}
 	}
@@ -152,7 +152,7 @@ var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
-func dispatchEvent(url string, m irc.Message) error {
+func dispatchMessageEvent(url string, m irc.Message) error {
 	event := MessageEvent{
 		Type: "event_callback",
 		Event: Event{
