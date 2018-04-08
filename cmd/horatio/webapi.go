@@ -82,23 +82,21 @@ func (w *WebAPI) postMessageHandler(hw http.ResponseWriter, r *http.Request) {
 	})
 
 	resp := APIResponse{OK: true}
-	{
-		buf, err := json.Marshal(resp)
-		if err != nil {
-			log.Printf("error marshaling response: %s", err)
-			hw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+	buf2, err := json.Marshal(resp)
+	if err != nil {
+		log.Printf("error marshaling response: %s", err)
+		hw.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
-		n, err := hw.Write(buf)
-		if err != nil {
-			log.Printf("error writing response: %s", err)
-			return
-		}
-		if n != len(buf) {
-			log.Printf("error writing response: short write")
-			return
-		}
+	n, err := hw.Write(buf2)
+	if err != nil {
+		log.Printf("error writing response: %s", err)
+		return
+	}
+	if n != len(buf2) {
+		log.Printf("error writing response: short write")
+		return
 	}
 
 	log.Printf("Received POST /api/chat.postMessage: %+v", p)
