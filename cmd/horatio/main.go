@@ -23,9 +23,9 @@ func main() {
 		log.Fatalf("error connecting: %s", err)
 	}
 
-	app := NewApp(args.verbose, ircClient)
+	webAPI := NewWebAPI(args.verbose, ircClient)
 	go func() {
-		if err := app.Serve(args.listenPort); err != nil {
+		if err := webAPI.Serve(args.listenPort); err != nil {
 			log.Fatalf("error serving HTTP: %s", err)
 		}
 	}()
