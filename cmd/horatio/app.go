@@ -12,15 +12,15 @@ import (
 
 // App is an HTTP server.
 type App struct {
-	verbose bool
-	client  *Client
+	verbose   bool
+	ircClient *IRCClient
 }
 
 // NewApp creates a new APP, an HTTP server.
-func NewApp(verbose bool, client *Client) *App {
+func NewApp(verbose bool, ircClient *IRCClient) *App {
 	return &App{
-		verbose: verbose,
-		client:  client,
+		verbose:   verbose,
+		ircClient: ircClient,
 	}
 }
 
@@ -73,7 +73,7 @@ func (a *App) postMessageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.client.Write(irc.Message{
+	a.ircClient.Write(irc.Message{
 		Command: "PRIVMSG",
 		Params:  []string{p.Channel, p.Text},
 	})

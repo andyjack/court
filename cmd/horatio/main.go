@@ -17,13 +17,13 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	client, err := NewClient(args.verbose, args.nick, args.channel, args.ircHost,
-		args.ircPort, &wg)
+	ircClient, err := NewIRCClient(args.verbose, args.nick, args.channel,
+		args.ircHost, args.ircPort, &wg)
 	if err != nil {
 		log.Fatalf("error connecting: %s", err)
 	}
 
-	app := NewApp(args.verbose, client)
+	app := NewApp(args.verbose, ircClient)
 	go func() {
 		if err := app.Serve(args.listenPort); err != nil {
 			log.Fatalf("error serving HTTP: %s", err)
@@ -33,13 +33,13 @@ func main() {
 	eventAPI := NewEventAPI(args.url)
 
 	for {
-		m, ok := client.Read()
+		m, ok := ircClient.Read()
 		if !ok {
 			break
 		}
 
 		if m.Command == "PING" {
-			client.Write(irc.Message{
+			ircClient.Write(irc.Message{
 				Command: "PONG",
 				Params:  []string{m.Params[0]},
 			})
@@ -60,7 +60,7 @@ func main() {
 		}
 	}
 
-	client.Close()
+	ircClient.Close()
 	wg.Wait()
 }
 

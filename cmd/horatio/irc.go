@@ -11,8 +11,8 @@ import (
 	"github.com/horgh/irc"
 )
 
-// Client is an IRC client.
-type Client struct {
+// IRCClient is an IRC client.
+type IRCClient struct {
 	verbose   bool
 	nick      string
 	conn      net.Conn
@@ -26,15 +26,15 @@ var dialer = &net.Dialer{
 	KeepAlive: 10 * time.Second,
 }
 
-// NewClient creates an IRC client. It connects and joins a channel.
-func NewClient(
+// NewIRCClient creates an IRC client. It connects and joins a channel.
+func NewIRCClient(
 	verbose bool,
 	nick,
 	channel,
 	host string,
 	port int,
 	wg *sync.WaitGroup,
-) (*Client, error) {
+) (*IRCClient, error) {
 	hostAndPort := fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Connecting to IRC server %s...", hostAndPort)
 	conn, err := dialer.Dial("tcp", hostAndPort)
@@ -42,7 +42,7 @@ func NewClient(
 		return nil, fmt.Errorf("error dialing: %s", err)
 	}
 
-	client := &Client{
+	client := &IRCClient{
 		verbose: verbose,
 		nick:    nick,
 		conn:    conn,
@@ -67,7 +67,7 @@ func NewClient(
 	return client, nil
 }
 
-func (c *Client) init(channel string) error {
+func (c *IRCClient) init(channel string) error {
 	c.Write(irc.Message{
 		Command: "NICK",
 		Params:  []string{c.nick},
@@ -109,12 +109,12 @@ func (c *Client) init(channel string) error {
 }
 
 // Read reads an IRC message.
-func (c *Client) Read() (irc.Message, bool) {
+func (c *IRCClient) Read() (irc.Message, bool) {
 	m, ok := <-c.readChan
 	return m, ok
 }
 
-func (c *Client) reader(wg *sync.WaitGroup) {
+func (c *IRCClient) reader(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
@@ -134,7 +134,7 @@ func (c *Client) reader(wg *sync.WaitGroup) {
 
 var readTimeout = 5 * time.Minute
 
-func (c *Client) readMessage() (irc.Message, error) {
+func (c *IRCClient) readMessage() (irc.Message, error) {
 	if err := c.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		return irc.Message{}, fmt.Errorf("error setting read deadline: %s", err)
 	}
@@ -154,11 +154,11 @@ func (c *Client) readMessage() (irc.Message, error) {
 }
 
 // Write writes a message to the connection.
-func (c *Client) Write(m irc.Message) {
+func (c *IRCClient) Write(m irc.Message) {
 	c.writeChan <- m
 }
 
-func (c *Client) writer(wg *sync.WaitGroup) {
+func (c *IRCClient) writer(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for m := range c.writeChan {
@@ -178,7 +178,7 @@ func (c *Client) writer(wg *sync.WaitGroup) {
 
 var writeTimeout = time.Minute
 
-func (c *Client) writeMessage(m irc.Message) error {
+func (c *IRCClient) writeMessage(m irc.Message) error {
 	buf, err := m.Encode()
 	if err != nil && err != irc.ErrTruncated {
 		return fmt.Errorf("error encoding message: %s", err)
@@ -205,7 +205,7 @@ func (c *Client) writeMessage(m irc.Message) error {
 }
 
 // Close cleans up the client.
-func (c *Client) Close() {
+func (c *IRCClient) Close() {
 	close(c.writeChan)
 	_ = c.conn.Close()
 }
