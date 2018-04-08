@@ -108,6 +108,12 @@ func (c *Client) init(channel string) error {
 	}
 }
 
+// Read reads an IRC message.
+func (c *Client) Read() (irc.Message, bool) {
+	m, ok := <-c.readChan
+	return m, ok
+}
+
 func (c *Client) reader(wg *sync.WaitGroup) {
 	defer wg.Done()
 

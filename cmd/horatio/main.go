@@ -37,7 +37,7 @@ func main() {
 	}()
 
 	for {
-		m, ok := <-client.readChan
+		m, ok := client.Read()
 		if !ok {
 			break
 		}
