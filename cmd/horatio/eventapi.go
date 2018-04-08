@@ -12,6 +12,19 @@ import (
 	"github.com/horgh/irc"
 )
 
+// EventAPI represents an Event API. This dispatches events to bots that expect
+// to receive Slack Event API type events via HTTP.
+type EventAPI struct {
+	endpointURL string
+}
+
+// NewEventAPI creates a new EventAPI.
+func NewEventAPI(endpointURL string) *EventAPI {
+	return &EventAPI{
+		endpointURL: endpointURL,
+	}
+}
+
 // MessageEvent represents the payload we send for a message event.
 //
 // It's structured to be similar to the Slack Event API event of this type.
@@ -32,7 +45,8 @@ var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
-func dispatchMessageEvent(url string, m irc.Message) error {
+// DispatchMessageEvent notifies the event listener of a message event.
+func (e *EventAPI) DispatchMessageEvent(m irc.Message) error {
 	event := MessageEvent{
 		Type: "event_callback",
 		Event: Event{
@@ -50,7 +64,7 @@ func dispatchMessageEvent(url string, m irc.Message) error {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		url,
+		e.endpointURL,
 		bytes.NewBuffer(buf),
 	)
 	if err != nil {
@@ -75,6 +89,6 @@ func dispatchMessageEvent(url string, m irc.Message) error {
 		return fmt.Errorf("HTTP %d from API", resp.StatusCode)
 	}
 
-	log.Printf("Dispatched message event: POST %s: %+v", url, m)
+	log.Printf("Dispatched message event: POST %s: %+v", e.endpointURL, m)
 	return nil
 }

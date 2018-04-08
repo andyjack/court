@@ -24,12 +24,13 @@ func main() {
 	}
 
 	app := NewApp(args.verbose, client)
-
 	go func() {
 		if err := app.Serve(args.listenPort); err != nil {
 			log.Fatalf("error serving HTTP: %s", err)
 		}
 	}()
+
+	eventAPI := NewEventAPI(args.url)
 
 	for {
 		m, ok := client.Read()
@@ -53,7 +54,7 @@ func main() {
 			continue
 		}
 
-		if err := dispatchMessageEvent(args.url, m); err != nil {
+		if err := eventAPI.DispatchMessageEvent(m); err != nil {
 			log.Printf("error dispatching message event: %s", err)
 			continue
 		}
@@ -78,7 +79,7 @@ func getArgs() (Args, error) {
 	verbose := flag.Bool("verbose", false, "Enable verbose output")
 	listenPort := flag.Int("listen-port", 8081, "Port to listen on (HTTP)")
 	url := flag.String("url", "http://localhost:8080/event",
-		"URL to send message events to")
+		"Event API listener URL. We send message events here.")
 	ircHost := flag.String("irc-host", "localhost", "IRC server host")
 	ircPort := flag.Int("irc-port", 6667, "IRC server port")
 	nick := flag.String("nick", "bot", "Nickname to use")
