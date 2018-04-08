@@ -27,7 +27,7 @@ func NewEventListener(port int, client *Client) *EventListener {
 //
 // It does not return unless there is an error.
 func (e *EventListener) Serve() error {
-	http.HandleFunc("/event", e.EventHandler)
+	http.HandleFunc("/event", e.eventHandler)
 
 	hostAndPort := fmt.Sprintf(":%d", e.port)
 
@@ -39,83 +39,83 @@ func (e *EventListener) Serve() error {
 	return nil
 }
 
-// EventHandler handles an HTTP request sent to the /event endpoint.
-func (e *EventListener) EventHandler(w http.ResponseWriter, r *http.Request) {
+// eventHandler handles an HTTP request sent to the /event endpoint.
+func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		e.Log(r, "invalid request method")
+		e.log(r, "invalid request method")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	buf, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		e.Log(r, "error reading request: %s", err)
+		e.log(r, "error reading request: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	var p map[string]interface{}
 	if err := json.Unmarshal(buf, &p); err != nil {
-		e.Log(r, "invalid JSON: %s", err)
+		e.log(r, "invalid JSON: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	e.Log(r, "received event: %+v", p)
+	e.log(r, "received event: %+v", p)
 
 	eventType, ok := p["type"]
 	if !ok {
-		e.Log(r, "no event type found")
+		e.log(r, "no event type found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	eventTypeString, ok := eventType.(string)
 	if !ok {
-		e.Log(r, "event type is not a string")
+		e.log(r, "event type is not a string")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	switch eventTypeString {
 	case "url_verification":
-		e.EventURLVerification(w, r, p)
+		e.eventURLVerification(w, r, p)
 		return
 	case "event_callback":
-		e.EventEventCallback(w, r, p)
+		e.eventEventCallback(w, r, p)
 		return
 	default:
-		e.Log(r, "unexpected event type: %s: %s", eventTypeString, buf)
+		e.log(r, "unexpected event type: %s: %s", eventTypeString, buf)
 		// Just say OK. It's likely we just don't support it but it is fine.
 		return
 	}
 }
 
-// Log logs a message associated with the given request.
-func (e *EventListener) Log(r *http.Request, f string, args ...interface{}) {
+// log logs a message associated with the given request.
+func (e *EventListener) log(r *http.Request, f string, args ...interface{}) {
 	log.Print(
 		fmt.Sprintf("HTTP %s %s from %s: ", r.Method, r.URL.Path, r.RemoteAddr) +
 			fmt.Sprintf(f, args...),
 	)
 }
 
-// EventURLVerification handles an url_verification event. This event happens
+// eventURLVerification handles an url_verification event. This event happens
 // when enabling event subscriptions on the app.
 //
 // We echo the challenge back.
-func (e *EventListener) EventURLVerification(
+func (e *EventListener) eventURLVerification(
 	w http.ResponseWriter,
 	r *http.Request,
 	p map[string]interface{},
 ) {
 	challenge, ok := p["challenge"]
 	if !ok {
-		e.Log(r, "url_verification event is missing challenge")
+		e.log(r, "url_verification event is missing challenge")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	challengeString, ok := challenge.(string)
 	if !ok {
-		e.Log(r, "url_verification event challenge is not a string")
+		e.log(r, "url_verification event challenge is not a string")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -129,75 +129,75 @@ func (e *EventListener) EventURLVerification(
 
 	buf, err := json.Marshal(resp)
 	if err != nil {
-		e.Log(r, "error marshaling url_verification response: %s")
+		e.log(r, "error marshaling url_verification response: %s")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	n, err := w.Write(buf)
 	if err != nil {
-		e.Log(r, "error writing url_verification response: %s", err)
+		e.log(r, "error writing url_verification response: %s", err)
 		// Can't send an HTTP status code as we should have written.
 		return
 	}
 	if n != len(buf) {
-		e.Log(r, "error writing url_verification response: short write")
+		e.log(r, "error writing url_verification response: short write")
 		// Can't send an HTTP status code as we should have written.
 		return
 	}
 
-	e.Log(r, "Processed url_verification event")
+	e.log(r, "Processed url_verification event")
 }
 
-// EventEventCallback is the event that happens when we receive a regular
+// eventEventCallback is the event that happens when we receive a regular
 // authorized user event. It holds an event object inside it which can be of
 // different types, so we dispatch to different functions depending on that
 // event.
-func (e *EventListener) EventEventCallback(
+func (e *EventListener) eventEventCallback(
 	w http.ResponseWriter,
 	r *http.Request,
 	p map[string]interface{},
 ) {
 	event, ok := p["event"]
 	if !ok {
-		e.Log(r, "event_callback event not found")
+		e.log(r, "event_callback event not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	eventMap, ok := event.(map[string]interface{})
 	if !ok {
-		e.Log(r, "event_callback event is not an object")
+		e.log(r, "event_callback event is not an object")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	eventType, ok := eventMap["type"]
 	if !ok {
-		e.Log(r, "event_callback event.type not found")
+		e.log(r, "event_callback event.type not found")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	eventTypeString, ok := eventType.(string)
 	if !ok {
-		e.Log(r, "event_callback event.type is not a string")
+		e.log(r, "event_callback event.type is not a string")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	switch eventTypeString {
 	case "message":
-		e.EventMessageChannels(w, r, eventMap)
+		e.eventMessage(w, r, eventMap)
 		return
 	default:
-		e.Log(r, "event_callback event.type not recognized")
+		e.log(r, "event_callback event.type not recognized")
 		// Just say OK. We probably just don't support it but it is okay.
 		return
 	}
 }
 
-// EventMessageChannels is the event that we receive when a message is posted
-// to a channel.
-func (e *EventListener) EventMessageChannels(
+// eventMessage is the event that we receive when a message is posted to a
+// channel.
+func (e *EventListener) eventMessage(
 	w http.ResponseWriter,
 	r *http.Request,
 	event map[string]interface{},
@@ -205,19 +205,19 @@ func (e *EventListener) EventMessageChannels(
 	// subtypes can include our own messages (bot_message). To simplify things,
 	// only deal with regular channel messages (which have no subtype).
 	if _, ok := event["subtype"]; ok {
-		e.Log(r, "got channel event with subtype, ignoring it")
+		e.log(r, "got channel event with subtype, ignoring it")
 		return
 	}
 
 	ch, ok := event["channel"]
 	if !ok {
-		e.Log(r, "message event does not have channel")
+		e.log(r, "message event does not have channel")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	chString, ok := ch.(string)
 	if !ok {
-		e.Log(r, "message event channel is not a string")
+		e.log(r, "message event channel is not a string")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -226,11 +226,11 @@ func (e *EventListener) EventMessageChannels(
 	go func() {
 		m := "hi there"
 		if err := e.client.ChatPostMessage(chString, m); err != nil {
-			e.Log(r, "error posting message to channel: %s", err)
+			e.log(r, "error posting message to channel: %s", err)
 			return
 		}
-		e.Log(r, "sent message to channel in reply")
+		e.log(r, "sent message to channel in reply")
 	}()
 
-	e.Log(r, "Processed event_callback message event")
+	e.log(r, "Processed event_callback message event")
 }
