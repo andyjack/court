@@ -245,10 +245,13 @@ func (c *Client) writer() {
 	for m := range c.writeChan {
 		if err := c.writeMessage(m); err != nil {
 			log.Printf("error writing: %s", err)
-			return
+			break
 		}
 
 		log.Printf("wrote message: %s", m)
+	}
+
+	for range c.writeChan {
 	}
 }
 
