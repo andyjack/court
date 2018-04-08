@@ -24,14 +24,15 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	client, err := NewClient(args.nick, args.channel, args.ircHost, args.ircPort,
-		&wg)
+	client, err := NewClient(args.verbose, args.nick, args.channel, args.ircHost,
+		args.ircPort, &wg)
 	if err != nil {
 		log.Fatalf("error connecting: %s", err)
 	}
 
 	go func() {
-		if err := httpServer(args.listenPort, client.writeChan); err != nil {
+		if err := httpServer(args.verbose, args.listenPort,
+			client.writeChan); err != nil {
 			log.Fatalf("error serving HTTP: %s", err)
 		}
 	}()
@@ -62,7 +63,6 @@ func main() {
 			log.Printf("error dispatching event: %s", err)
 			continue
 		}
-		log.Printf("dispatched PRIVMSG")
 	}
 
 	close(client.writeChan)
@@ -72,6 +72,7 @@ func main() {
 
 // Args are command line arguments.
 type Args struct {
+	verbose    bool
 	listenPort int
 	url        string
 	ircHost    string
@@ -81,6 +82,7 @@ type Args struct {
 }
 
 func getArgs() (Args, error) {
+	verbose := flag.Bool("verbose", false, "Enable verbose output")
 	listenPort := flag.Int("listen-port", 8081, "Port to listen on (HTTP)")
 	url := flag.String("url", "http://localhost:8080/event",
 		"URL to send message events to")
@@ -122,6 +124,7 @@ func getArgs() (Args, error) {
 	}
 
 	return Args{
+		verbose:    *verbose,
 		listenPort: *listenPort,
 		url:        *url,
 		ircHost:    *ircHost,
@@ -133,6 +136,7 @@ func getArgs() (Args, error) {
 
 // Client is an IRC client.
 type Client struct {
+	verbose   bool
 	nick      string
 	conn      net.Conn
 	rw        *bufio.ReadWriter
@@ -147,6 +151,7 @@ var dialer = &net.Dialer{
 
 // NewClient creates an IRC client. It connects and joins a channel.
 func NewClient(
+	verbose bool,
 	nick,
 	channel,
 	host string,
@@ -154,14 +159,16 @@ func NewClient(
 	wg *sync.WaitGroup,
 ) (*Client, error) {
 	hostAndPort := fmt.Sprintf("%s:%d", host, port)
+	log.Printf("Connecting to IRC server %s...", hostAndPort)
 	conn, err := dialer.Dial("tcp", hostAndPort)
 	if err != nil {
 		return nil, fmt.Errorf("error dialing: %s", err)
 	}
 
 	client := &Client{
-		nick: nick,
-		conn: conn,
+		verbose: verbose,
+		nick:    nick,
+		conn:    conn,
 		rw: bufio.NewReadWriter(
 			bufio.NewReader(conn),
 			bufio.NewWriter(conn),
@@ -211,6 +218,7 @@ func (c *Client) init(channel string) error {
 			}
 
 			if m.Command == "001" {
+				log.Printf("Connected to IRC server")
 				return nil
 			}
 
@@ -234,7 +242,9 @@ func (c *Client) reader(wg *sync.WaitGroup) {
 			return
 		}
 
-		log.Printf("read message: %s", m)
+		if c.verbose {
+			log.Printf("read message: %s", m)
+		}
 		c.readChan <- m
 	}
 }
@@ -269,7 +279,9 @@ func (c *Client) writer(wg *sync.WaitGroup) {
 			break
 		}
 
-		log.Printf("wrote message: %s", m)
+		if c.verbose {
+			log.Printf("wrote message: %s", m)
+		}
 	}
 
 	for range c.writeChan {
@@ -367,16 +379,19 @@ func dispatchEvent(url string, m irc.Message) error {
 		return fmt.Errorf("HTTP %d from API", resp.StatusCode)
 	}
 
+	log.Printf("Dispatched message event: POST %s: %+v", url, m)
 	return nil
 }
 
 // App is an HTTP server.
 type App struct {
+	verbose   bool
 	writeChan chan<- irc.Message
 }
 
-func httpServer(port int, writeChan chan<- irc.Message) error {
+func httpServer(verbose bool, port int, writeChan chan<- irc.Message) error {
 	app := &App{
+		verbose:   verbose,
 		writeChan: writeChan,
 	}
 
@@ -451,5 +466,5 @@ func (a *App) postMessageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("processed chat.postMessage: %+v", p)
+	log.Printf("Received POST /api/chat.postMessage: %+v", p)
 }
