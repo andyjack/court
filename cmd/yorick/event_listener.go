@@ -195,12 +195,7 @@ func (e *EventListener) eventMessage(
 
 	// Respond in a goroutine so we reply to the request ASAP.
 	go func() {
-		m := "hi there"
-		if err := e.webAPIClient.ChatPostMessage(event.Channel, m); err != nil {
-			e.log(r, "error posting message to channel: %s", err)
-			return
-		}
-		e.log(r, "Sent message via Web API: %s: %s", event.Channel, m)
+		messageEvent(e.webAPIClient, event.Channel, event.User, event.Text)
 	}()
 
 	e.log(r, "Processed message event")
