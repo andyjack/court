@@ -9,26 +9,26 @@ import (
 	"time"
 )
 
-// Client is a Slack API client.
-type Client struct {
+// WebAPIClient is a Slack Web API client.
+type WebAPIClient struct {
 	endpointURL string
 	token       string
-	httpClient  *http.Client
 }
 
-// NewClient creates a Client.
-func NewClient(endpointURL, token string) *Client {
-	return &Client{
+// NewWebAPIClient creates a WebAPIClient.
+func NewWebAPIClient(endpointURL, token string) *WebAPIClient {
+	return &WebAPIClient{
 		endpointURL: endpointURL,
 		token:       token,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
 	}
 }
 
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
+
 // ChatPostMessage sends a message to a channel (chat.postMessage).
-func (c *Client) ChatPostMessage(channel, text string) error {
+func (w *WebAPIClient) ChatPostMessage(channel, text string) error {
 	type Payload struct {
 		Channel string `json:"channel"`
 		Text    string `json:"text"`
@@ -45,7 +45,7 @@ func (c *Client) ChatPostMessage(channel, text string) error {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("%s/chat.postMessage", c.endpointURL),
+		fmt.Sprintf("%s/chat.postMessage", w.endpointURL),
 		bytes.NewBuffer(buf),
 	)
 	if err != nil {
@@ -53,9 +53,9 @@ func (c *Client) ChatPostMessage(channel, text string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", w.token))
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("error performing HTTP request: %s", err)
 	}

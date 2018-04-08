@@ -12,9 +12,9 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	client := NewClient(args.url, args.token)
+	webAPIClient := NewWebAPIClient(args.url, args.token)
 
-	eventListener := NewEventListener(args.port, client)
+	eventListener := NewEventListener(args.port, webAPIClient)
 
 	if err := eventListener.Serve(); err != nil {
 		log.Fatalf("error serving: %s", err)

@@ -11,15 +11,15 @@ import (
 // EventListener is an HTTP server that receives Slack Event API HTTP events.
 // It can use Slack's Web API to do things in response.
 type EventListener struct {
-	port   int
-	client *Client
+	port         int
+	webAPIClient *WebAPIClient
 }
 
 // NewEventListener creates an EventListener.
-func NewEventListener(port int, client *Client) *EventListener {
+func NewEventListener(port int, webAPIClient *WebAPIClient) *EventListener {
 	return &EventListener{
-		port:   port,
-		client: client,
+		port:         port,
+		webAPIClient: webAPIClient,
 	}
 }
 
@@ -225,7 +225,7 @@ func (e *EventListener) eventMessage(
 	// Respond in a goroutine so we reply to the event request ASAP.
 	go func() {
 		m := "hi there"
-		if err := e.client.ChatPostMessage(chString, m); err != nil {
+		if err := e.webAPIClient.ChatPostMessage(chString, m); err != nil {
 			e.log(r, "error posting message to channel: %s", err)
 			return
 		}
