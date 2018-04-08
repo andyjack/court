@@ -12,9 +12,11 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
+	client := NewClient(args.url, args.token)
+
 	app := App{
 		port:   args.port,
-		client: NewClient(args.url, args.token),
+		client: client,
 	}
 
 	if err := app.Serve(); err != nil {
