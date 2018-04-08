@@ -96,14 +96,19 @@ func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 	switch p.Type {
 	case "url_verification":
 		e.eventURLVerification(w, r, p)
-		return
 	case "event_callback":
-		e.eventEventCallback(w, r, p)
-		return
+		// eventEventCallback is the event that happens when we receive a regular
+		// authorized user event. It holds an event object inside it which can be
+		// of different types, so we dispatch to different functions depending on
+		// that event.
+		switch p.Event.Type {
+		case "message":
+			e.eventMessage(w, r, p.Event)
+		default:
+			e.log(r, "event_callback event type not recognized")
+		}
 	default:
 		e.log(r, "unexpected event type: %s: %s", p.Type)
-		// Just say OK. It's likely we just don't support it but it is fine.
-		return
 	}
 }
 
@@ -144,36 +149,14 @@ func (e *EventListener) eventURLVerification(
 	n, err := w.Write(buf)
 	if err != nil {
 		e.log(r, "error writing url_verification response: %s", err)
-		// Can't send an HTTP status code as we should have written.
 		return
 	}
 	if n != len(buf) {
 		e.log(r, "error writing url_verification response: short write")
-		// Can't send an HTTP status code as we should have written.
 		return
 	}
 
 	e.log(r, "Processed url_verification event")
-}
-
-// eventEventCallback is the event that happens when we receive a regular
-// authorized user event. It holds an event object inside it which can be of
-// different types, so we dispatch to different functions depending on that
-// event.
-func (e *EventListener) eventEventCallback(
-	w http.ResponseWriter,
-	r *http.Request,
-	p EventPayload,
-) {
-	switch p.Event.Type {
-	case "message":
-		e.eventMessage(w, r, p.Event)
-		return
-	default:
-		e.log(r, "event_callback event.type not recognized")
-		// Just say OK. We probably just don't support it but it is okay.
-		return
-	}
 }
 
 // eventMessage is the event that we receive when a message is posted to a
@@ -186,14 +169,14 @@ func (e *EventListener) eventMessage(
 	event Event,
 ) {
 	// subtypes can include our own messages (bot_message). To simplify things,
-	// only deal with regular channel messages (which have no subtype).
+	// only deal with regular channel messages which have no subtype.
 	if event.SubType != "" {
 		e.log(r, "Received message event with subtype %s, ignoring it",
 			event.SubType)
 		return
 	}
 
-	// Respond in a goroutine so we reply to the request ASAP.
+	// Respond in a goroutine so we reply to the Event API request ASAP.
 	go func() {
 		messageEvent(e.webAPIClient, event.Channel, event.User, event.Text)
 	}()
