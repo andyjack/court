@@ -14,12 +14,9 @@ func main() {
 
 	client := NewClient(args.url, args.token)
 
-	app := App{
-		port:   args.port,
-		client: client,
-	}
+	eventListener := NewEventListener(args.port, client)
 
-	if err := app.Serve(); err != nil {
+	if err := eventListener.Serve(); err != nil {
 		log.Fatalf("error serving: %s", err)
 	}
 }
