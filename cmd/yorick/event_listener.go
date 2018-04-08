@@ -39,6 +39,26 @@ func (e *EventListener) Serve() error {
 	return nil
 }
 
+// EventPayload represents an Event API request payload.
+type EventPayload struct {
+	// Top level event type.
+	Type string `json:"type"`
+
+	// url_verification events include a challenge field.
+	Challenge string `json:"challenge"`
+
+	Event Event `json:"event"`
+}
+
+// Event represents the actual event. It's part of an Event API payload.
+type Event struct {
+	Type    string `json:"type"`
+	SubType string `json:"subtype"`
+	Channel string `json:"channel"`
+	User    string `json:"user"`
+	Text    string `json:"text"`
+}
+
 // eventHandler handles an HTTP request sent to the /event endpoint.
 func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -54,29 +74,16 @@ func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var p map[string]interface{}
+	var p EventPayload
 	if err := json.Unmarshal(buf, &p); err != nil {
 		e.log(r, "invalid JSON: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	e.log(r, "received event: %+v", p)
+	e.log(r, "Received event: %s (parsed %+v)", buf, p)
 
-	eventType, ok := p["type"]
-	if !ok {
-		e.log(r, "no event type found")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	eventTypeString, ok := eventType.(string)
-	if !ok {
-		e.log(r, "event type is not a string")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	switch eventTypeString {
+	switch p.Type {
 	case "url_verification":
 		e.eventURLVerification(w, r, p)
 		return
@@ -84,7 +91,7 @@ func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 		e.eventEventCallback(w, r, p)
 		return
 	default:
-		e.log(r, "unexpected event type: %s: %s", eventTypeString, buf)
+		e.log(r, "unexpected event type: %s: %s", p.Type)
 		// Just say OK. It's likely we just don't support it but it is fine.
 		return
 	}
@@ -111,23 +118,10 @@ type URLVerificationResponse struct {
 func (e *EventListener) eventURLVerification(
 	w http.ResponseWriter,
 	r *http.Request,
-	p map[string]interface{},
+	p EventPayload,
 ) {
-	challenge, ok := p["challenge"]
-	if !ok {
-		e.log(r, "url_verification event is missing challenge")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	challengeString, ok := challenge.(string)
-	if !ok {
-		e.log(r, "url_verification event challenge is not a string")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	resp := URLVerificationResponse{
-		Challenge: challengeString,
+		Challenge: p.Challenge,
 	}
 
 	buf, err := json.Marshal(resp)
@@ -159,37 +153,11 @@ func (e *EventListener) eventURLVerification(
 func (e *EventListener) eventEventCallback(
 	w http.ResponseWriter,
 	r *http.Request,
-	p map[string]interface{},
+	p EventPayload,
 ) {
-	event, ok := p["event"]
-	if !ok {
-		e.log(r, "event_callback event not found")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	eventMap, ok := event.(map[string]interface{})
-	if !ok {
-		e.log(r, "event_callback event is not an object")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	eventType, ok := eventMap["type"]
-	if !ok {
-		e.log(r, "event_callback event.type not found")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	eventTypeString, ok := eventType.(string)
-	if !ok {
-		e.log(r, "event_callback event.type is not a string")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	switch eventTypeString {
+	switch p.Event.Type {
 	case "message":
-		e.eventMessage(w, r, eventMap)
+		e.eventMessage(w, r, p.Event)
 		return
 	default:
 		e.log(r, "event_callback event.type not recognized")
@@ -200,40 +168,30 @@ func (e *EventListener) eventEventCallback(
 
 // eventMessage is the event that we receive when a message is posted to a
 // channel.
+//
+// See https://api.slack.com/events/message
 func (e *EventListener) eventMessage(
 	w http.ResponseWriter,
 	r *http.Request,
-	event map[string]interface{},
+	event Event,
 ) {
 	// subtypes can include our own messages (bot_message). To simplify things,
 	// only deal with regular channel messages (which have no subtype).
-	if _, ok := event["subtype"]; ok {
-		e.log(r, "got channel event with subtype, ignoring it")
+	if event.SubType != "" {
+		e.log(r, "Received message event with subtype %s, ignoring it",
+			event.SubType)
 		return
 	}
 
-	ch, ok := event["channel"]
-	if !ok {
-		e.log(r, "message event does not have channel")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	chString, ok := ch.(string)
-	if !ok {
-		e.log(r, "message event channel is not a string")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Respond in a goroutine so we reply to the event request ASAP.
+	// Respond in a goroutine so we reply to the request ASAP.
 	go func() {
 		m := "hi there"
-		if err := e.webAPIClient.ChatPostMessage(chString, m); err != nil {
+		if err := e.webAPIClient.ChatPostMessage(event.Channel, m); err != nil {
 			e.log(r, "error posting message to channel: %s", err)
 			return
 		}
-		e.log(r, "Sent message via Web API: %s: %s", chString, m)
+		e.log(r, "Sent message via Web API: %s: %s", event.Channel, m)
 	}()
 
-	e.log(r, "Processed event_callback message event")
+	e.log(r, "Processed message event")
 }
