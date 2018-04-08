@@ -9,21 +9,18 @@ import (
 	"time"
 )
 
-const (
-	// Endpoint is the base URL to the Slack API.
-	Endpoint = "https://slack.com/api"
-)
-
 // Client is a Slack API client.
 type Client struct {
-	token      string
-	httpClient *http.Client
+	endpointURL string
+	token       string
+	httpClient  *http.Client
 }
 
 // NewClient creates a Client.
-func NewClient(token string) *Client {
+func NewClient(endpointURL, token string) *Client {
 	return &Client{
-		token: token,
+		endpointURL: endpointURL,
+		token:       token,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -48,7 +45,7 @@ func (c *Client) ChatPostMessage(channel, text string) error {
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf("%s/chat.postMessage", Endpoint),
+		fmt.Sprintf("%s/chat.postMessage", c.endpointURL),
 		bytes.NewBuffer(buf),
 	)
 	if err != nil {
