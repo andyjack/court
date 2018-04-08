@@ -33,6 +33,11 @@ type PostMessagePayload struct {
 	Text    string `json:"text"`
 }
 
+// APIResponse represents an API response.
+type APIResponse struct {
+	OK bool `json:"ok"`
+}
+
 // ChatPostMessage sends a message to a channel (chat.postMessage).
 func (w *WebAPIClient) ChatPostMessage(channel, text string) error {
 	payload := PostMessagePayload{
@@ -76,21 +81,13 @@ func (w *WebAPIClient) ChatPostMessage(channel, text string) error {
 		return fmt.Errorf("HTTP %d from API", resp.StatusCode)
 	}
 
-	var p map[string]interface{}
-	if err := json.Unmarshal(body, &p); err != nil {
+	var apiResponse APIResponse
+	if err := json.Unmarshal(body, &apiResponse); err != nil {
 		return fmt.Errorf("error unmarshaling body: %s", err)
 	}
 
-	ok, exists := p["ok"]
-	if !exists {
-		return fmt.Errorf("response did not include ok")
-	}
-	success, isBool := ok.(bool)
-	if !isBool {
-		return fmt.Errorf("response ok was not bool")
-	}
-	if !success {
-		return fmt.Errorf("API said !ok: %+v (I sent %s)", p, buf)
+	if !apiResponse.OK {
+		return fmt.Errorf("API said !ok: %s (I sent %s)", body, buf)
 	}
 
 	return nil
