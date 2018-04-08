@@ -11,13 +11,19 @@ import (
 // EventListener is an HTTP server that receives Slack Event API HTTP events.
 // It can use Slack's Web API to do things in response.
 type EventListener struct {
+	verbose      bool
 	port         int
 	webAPIClient *WebAPIClient
 }
 
 // NewEventListener creates an EventListener.
-func NewEventListener(port int, webAPIClient *WebAPIClient) *EventListener {
+func NewEventListener(
+	verbose bool,
+	port int,
+	webAPIClient *WebAPIClient,
+) *EventListener {
 	return &EventListener{
+		verbose:      verbose,
 		port:         port,
 		webAPIClient: webAPIClient,
 	}
@@ -74,6 +80,10 @@ func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if e.verbose {
+		e.log(r, "Received event with body: %s", buf)
+	}
+
 	var p EventPayload
 	if err := json.Unmarshal(buf, &p); err != nil {
 		e.log(r, "invalid JSON: %s", err)
@@ -81,7 +91,7 @@ func (e *EventListener) eventHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e.log(r, "Received event: %s (parsed %+v)", buf, p)
+	e.log(r, "Received event: %+v", p)
 
 	switch p.Type {
 	case "url_verification":
