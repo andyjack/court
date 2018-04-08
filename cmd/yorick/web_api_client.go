@@ -27,13 +27,15 @@ var httpClient = &http.Client{
 	Timeout: 10 * time.Second,
 }
 
+// PostMessagePayload represents a chat.postMessage payload.
+type PostMessagePayload struct {
+	Channel string `json:"channel"`
+	Text    string `json:"text"`
+}
+
 // ChatPostMessage sends a message to a channel (chat.postMessage).
 func (w *WebAPIClient) ChatPostMessage(channel, text string) error {
-	type Payload struct {
-		Channel string `json:"channel"`
-		Text    string `json:"text"`
-	}
-	payload := Payload{
+	payload := PostMessagePayload{
 		Channel: channel,
 		Text:    text,
 	}
