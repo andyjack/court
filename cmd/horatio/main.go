@@ -82,7 +82,7 @@ func getArgs() (Args, error) {
 		"Event API listener URL. We send message events here.")
 	ircHost := flag.String("irc-host", "localhost", "IRC server host")
 	ircPort := flag.Int("irc-port", 6667, "IRC server port")
-	nick := flag.String("nick", "bot", "Nickname to use")
+	nick := flag.String("nick", "Yorick", "Nickname to use")
 	channel := flag.String("channel", "#test", "Channel to join")
 
 	flag.Parse()
